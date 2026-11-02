@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "speckit-dash"
+dynamic = ["version"]
+description = "A local status page for Spec Kit repos: every task, ideas not yet specced, and what shipped in each release."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Brian Trzupek" }]
+keywords = ["spec-kit", "spec-driven-development", "dashboard"]
+
+[project.scripts]
+speckit-dash = "speckit_dash.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "speckit_dash.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+speckit_dash = ["page.html"]

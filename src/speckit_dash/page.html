@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:">
+<title>Spec Kit status</title>
+<style>
+:root {
+  --bg: #f7f7f5; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6b66; --line: #e3e2dc; --hover: #f0efe9;
+  --accent: #2f5fd0; --code: #f1f0ea;
+  --s-open: #5b6170; --s-progress: #2f5fd0; --s-queued: #7a4fc4; --s-waiting: #b7791f; --s-blocked: #c2412d;
+  --s-closed: #2f855a; --s-split: #8a8a84;
+  font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161615; --panel: #1f1f1d; --ink: #ecebe6; --muted: #9a9a93; --line: #34342f; --hover: #2a2a27;
+    --accent: #7ea2ff; --code: #2b2b28;
+    --s-open: #a3a8b5; --s-progress: #7ea2ff; --s-queued: #b794f4; --s-waiting: #e3a63b; --s-blocked: #f2795f;
+    --s-closed: #5fc28d; --s-split: #8a8a84;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #161615; --panel: #1f1f1d; --ink: #ecebe6; --muted: #9a9a93; --line: #34342f; --hover: #2a2a27;
+  --accent: #7ea2ff; --code: #2b2b28;
+  --s-open: #a3a8b5; --s-progress: #7ea2ff; --s-queued: #b794f4; --s-waiting: #e3a63b; --s-blocked: #f2795f;
+  --s-closed: #5fc28d; --s-split: #8a8a84;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); }
+a { color: var(--accent); }
+code { font: 12.5px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--code); padding: 0 3px; border-radius: 3px; }
+header { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); }
+.bar { max-width: 1200px; margin: 0 auto; padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+h1 { font-size: 16px; margin: 0; font-weight: 650; }
+select, input[type=search] { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
+input[type=search] { min-width: 200px; flex: 1; }
+.tabs { display: flex; gap: 2px; }
+.tabs button { font: inherit; background: none; border: 0; color: var(--muted); padding: 6px 10px; border-radius: 6px; cursor: pointer; }
+.tabs button[aria-selected=true] { color: var(--ink); background: var(--panel); box-shadow: 0 0 0 1px var(--line); }
+.meta { color: var(--muted); font-size: 12px; margin-left: auto; display: flex; gap: 10px; flex-wrap: wrap; }
+.src { white-space: nowrap; }
+.src.bad { color: var(--s-blocked); }
+main { max-width: 1200px; margin: 0 auto; padding: 12px 16px 60px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; margin: 4px 0 12px; }
+.chip { font: inherit; font-size: 12.5px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 999px; padding: 2px 10px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+.chip[aria-pressed=false] { opacity: .45; }
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
+label.toggle { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; font-size: 13px; }
+.group { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 12px; overflow: hidden; }
+.ghead { display: flex; gap: 10px; align-items: baseline; padding: 9px 12px; border-bottom: 1px solid var(--line); cursor: pointer; flex-wrap: wrap; }
+.ghead .fid { font: 12.5px ui-monospace, Menlo, monospace; color: var(--muted); }
+.ghead .ft { font-weight: 600; flex: 1; min-width: 200px; }
+.ghead .prog { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.group.collapsed .rows { display: none; }
+.group.collapsed .ghead { border-bottom: 0; }
+.repo-title { font-size: 15px; margin: 18px 0 8px; font-weight: 650; }
+.row { border-top: 1px solid var(--line); }
+.row:first-child { border-top: 0; }
+.rmain { display: grid; grid-template-columns: 104px 120px 1fr auto; gap: 10px; padding: 7px 12px; align-items: start; cursor: pointer; }
+.rmain:hover { background: var(--hover); }
+.tid { font: 12.5px ui-monospace, Menlo, monospace; padding-top: 2px; white-space: nowrap; }
+.tid.struck { text-decoration: line-through; color: var(--muted); }
+.pill { font-size: 12px; font-weight: 600; display: inline-flex; gap: 6px; align-items: center; white-space: nowrap; padding-top: 2px; }
+.title { overflow-wrap: anywhere; }
+.sub { display: flex; flex-wrap: wrap; gap: 4px 8px; margin-top: 3px; font-size: 12px; color: var(--muted); align-items: center; }
+.dep { font: 11.5px ui-monospace, Menlo, monospace; border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; display: inline-flex; gap: 4px; align-items: center; cursor: pointer; background: none; color: var(--ink); }
+.tag { font-size: 11.5px; border-radius: 4px; padding: 0 6px; background: var(--code); color: var(--muted); white-space: nowrap; }
+.links { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; font-size: 12px; max-width: 260px; }
+.links a, .links span { white-space: nowrap; }
+.detail { display: none; padding: 4px 12px 12px 246px; font-size: 13px; }
+.row.open .detail { display: block; }
+.row.flash .rmain { animation: flash 1.6s ease-out; }
+@keyframes flash { from { background: color-mix(in srgb, var(--accent) 25%, transparent); } to { background: transparent; } }
+.detail dl { display: grid; grid-template-columns: 110px 1fr; gap: 4px 12px; margin: 0; }
+.detail dt { color: var(--muted); }
+.detail dd { margin: 0; overflow-wrap: anywhere; }
+.notes { white-space: pre-wrap; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; margin: 0; font: inherit; font-size: 12.5px; max-height: 360px; overflow: auto; }
+.commit { display: block; font-size: 12.5px; }
+.commit code { margin-right: 6px; }
+.empty { color: var(--muted); padding: 30px; text-align: center; }
+.summary { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0 0 10px; font-size: 13px; color: var(--muted); }
+.summary b { color: var(--ink); }
+table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+th, td { text-align: left; padding: 7px 10px; border-top: 1px solid var(--line); vertical-align: top; font-size: 13px; }
+th { color: var(--muted); font-weight: 600; font-size: 12px; border-top: 0; }
+.bar-o { width: 90px; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; display: inline-block; vertical-align: middle; }
+.bar-i { display: block; height: 100%; background: var(--s-closed); }
+.clip { max-width: 420px; color: var(--muted); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
+.card .where { font: 12px ui-monospace, Menlo, monospace; color: var(--muted); overflow-wrap: anywhere; }
+.card .d { font-size: 12.5px; color: var(--muted); margin-top: 3px; overflow-wrap: anywhere; }
+h2 { font-size: 14px; margin: 18px 0 8px; display: flex; gap: 8px; align-items: baseline; }
+h2 small { color: var(--muted); font-weight: 400; }
+.rel-h { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.rel-h b { font-size: 15px; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.hint { color: var(--muted); font-size: 12px; margin: 0 0 12px; }
+@media (max-width: 720px) {
+  .rmain { grid-template-columns: 1fr auto; }
+  .rmain .tid { grid-column: 1; }
+  .rmain .pill { grid-column: 2; justify-self: end; }
+  .rmain .title { grid-column: 1 / -1; }
+  .rmain .links { grid-column: 1 / -1; justify-content: flex-start; max-width: none; }
+  .detail { padding-left: 12px; }
+  .detail dl { grid-template-columns: 1fr; }
+  .meta { margin-left: 0; }
+  .hide-sm { display: none; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <h1>Spec Kit status</h1>
+    <select id="repo" aria-label="Repository"></select>
+    <nav class="tabs" role="tablist">
+      <button data-tab="tasks" role="tab">Tasks</button>
+      <button data-tab="features" role="tab">Features</button>
+      <button data-tab="ideas" role="tab">Ideas</button>
+      <button data-tab="releases" role="tab">Releases</button>
+    </nav>
+    <div class="meta" id="meta"></div>
+  </div>
+</header>
+<main id="main"></main>
+<script id="data" type="application/json">/*DATA*/</script>
+<script>
+(function () {
+  "use strict";
+  var DATA = JSON.parse(document.getElementById("data").textContent);
+  var STATUSES = ["open", "in progress", "queued", "waiting", "blocked", "closed", "split"];
+  var COLOR = { "open": "--s-open", "in progress": "--s-progress", "queued": "--s-queued", "waiting": "--s-waiting",
+    "blocked": "--s-blocked", "closed": "--s-closed", "split": "--s-split" };
+  var state = { tab: "tasks", repo: "", q: "", closed: false, feature: "", off: {} };
+
+  // ---------- helpers: every bit of repo text goes in as text, never as HTML ----------
+  function el(tag, attrs, kids) {
+    var e = document.createElement(tag);
+    if (attrs) for (var k in attrs) {
+      if (attrs[k] == null || attrs[k] === false) continue;
+      if (k === "class") e.className = attrs[k];
+      else if (k === "text") e.textContent = attrs[k];
+      else if (k.slice(0, 2) === "on") e.addEventListener(k.slice(2), attrs[k]);
+      else e.setAttribute(k, attrs[k]);
+    }
+    (kids || []).forEach(function (c) { if (c != null) e.appendChild(typeof c === "string" ? document.createTextNode(c) : c); });
+    return e;
+  }
+  function md(text) {  // `code`, **bold**, ~~struck~~ only
+    var frag = document.createDocumentFragment();
+    String(text || "").split(/(`[^`\n]+`|\*\*[^*\n]+\*\*|~~[^~\n]+~~)/).forEach(function (p) {
+      if (!p) return;
+      if (p[0] === "`" && p.length > 2 && p[p.length - 1] === "`") frag.appendChild(el("code", { text: p.slice(1, -1) }));
+      else if (p.slice(0, 2) === "**" && p.slice(-2) === "**") frag.appendChild(el("strong", { text: p.slice(2, -2) }));
+      else if (p.slice(0, 2) === "~~" && p.slice(-2) === "~~") frag.appendChild(el("s", { text: p.slice(2, -2) }));
+      else frag.appendChild(document.createTextNode(p));
+    });
+    return frag;
+  }
+  function dot(status) { return el("span", { class: "dot", style: "background: var(" + (COLOR[status] || "--s-open") + ")" }); }
+  function pill(status) { return el("span", { class: "pill", style: "color: var(" + COLOR[status] + ")" }, [dot(status), status]); }
+  function safeUrl(u) { return /^https:\/\//.test(u || "") ? u : null; }
+  function link(href, text, title) {
+    var u = safeUrl(href);
+    return u ? el("a", { href: u, target: "_blank", rel: "noopener noreferrer", title: title || null, text: text }) : el("span", { text: text, title: title || null });
+  }
+  function repos() { return state.repo ? DATA.repos.filter(function (r) { return r.name === state.repo; }) : DATA.repos; }
+  function matches(t) {
+    if (!state.q) return true;
+    var q = state.q.toLowerCase();
+    return (t.id + " " + t.title + " " + t.tag + " " + t.notes + " " + t.feature + " " + t.status_detail).toLowerCase().indexOf(q) >= 0;
+  }
+
+  // ---------- hash state ----------
+  function readHash() {
+    var h = new URLSearchParams(location.hash.slice(1));
+    state.tab = h.get("tab") || "tasks";
+    state.repo = h.get("repo") || "";
+    state.q = h.get("q") || "";
+    state.closed = h.get("closed") === "1";
+    state.feature = h.get("feature") || "";
+    state.off = {};
+    (h.get("off") || "").split(",").filter(Boolean).forEach(function (s) { state.off[s] = true; });
+  }
+  function writeHash() {
+    var h = new URLSearchParams();
+    if (state.tab !== "tasks") h.set("tab", state.tab);
+    if (state.repo) h.set("repo", state.repo);
+    if (state.q) h.set("q", state.q);
+    if (state.closed) h.set("closed", "1");
+    if (state.feature) h.set("feature", state.feature);
+    var off = Object.keys(state.off).filter(function (k) { return state.off[k]; });
+    if (off.length) h.set("off", off.join(","));
+    history.replaceState(null, "", "#" + h.toString());
+  }
+
+  // ---------- header ----------
+  function header() {
+    var sel = document.getElementById("repo");
+    sel.textContent = "";
+    if (DATA.repos.length > 1) sel.appendChild(el("option", { value: "", text: "All repos (" + DATA.repos.length + ")" }));
+    DATA.repos.forEach(function (r) { sel.appendChild(el("option", { value: r.name, text: r.name })); });
+    sel.value = state.repo;
+    sel.style.display = DATA.repos.length > 1 ? "" : "none";
+    if (DATA.repos.length === 1) { sel.after(el("strong", { text: DATA.repos[0].name })); }
+    sel.onchange = function () { state.repo = sel.value; state.feature = ""; render(); };
+    document.querySelectorAll(".tabs button").forEach(function (b) {
+      b.onclick = function () { state.tab = b.dataset.tab; render(); };
+    });
+    var meta = document.getElementById("meta");
+    meta.textContent = "";
+    meta.appendChild(el("span", { text: (DATA.served ? "live · " : "built ") + DATA.generated }));
+    DATA.repos.forEach(function (r) {
+      ["github", "halo"].forEach(function (k) {
+        var s = r.sources[k];
+        if (!s || s === "off") return;
+        var bad = s !== "ok";
+        meta.appendChild(el("span", { class: "src" + (bad ? " bad" : ""), title: r.name + " " + k + ": " + s,
+          text: (DATA.repos.length > 1 ? r.name + " " : "") + (k === "halo" ? "build queue" : "GitHub") + (bad ? " ✕" : " ✓") }));
+      });
+    });
+  }
+
+  // ---------- tasks ----------
+  function taskRow(t, r, index) {
+    var row = el("div", { class: "row", id: "t-" + r.name + "-" + t.id });
+    var sub = el("div", { class: "sub" });
+    if (t.assignee) sub.appendChild(el("span", { class: "tag", text: t.assignee }));
+    (t.labels || []).forEach(function (l) { sub.appendChild(el("span", { class: "tag", text: l })); });
+    if (t.parallel) sub.appendChild(el("span", { class: "tag", text: "parallel" }));
+    if (t.status_detail && t.status !== "closed" && t.status !== "open")
+      sub.appendChild(el("span", { text: t.status_detail, title: "from " + t.status_source }));
+    if (t.deps.length) {
+      sub.appendChild(el("span", { text: "needs" }));
+      t.deps.forEach(function (d) {
+        var ds = t.dep_status[d];
+        sub.appendChild(el("button", { class: "dep", title: d + ": " + ds + (index[d] ? " — " + index[d].title.slice(0, 120) : ""),
+          onclick: function (ev) { ev.stopPropagation(); jump(r, d); } }, [dot(ds), d.replace(/^\d+-/, "")]));
+      });
+    }
+    var links = el("div", { class: "links" });
+    t.links.forEach(function (l) {
+      if (l.kind === "branch") links.appendChild(el("span", { class: "tag hide-sm", title: "branch", text: "⑂ " + l.label }));
+      else links.appendChild(link(l.url, l.label + (l.state && l.state !== "open" ? " (" + l.state + ")" : ""), l.title));
+    });
+    if (t.release) links.appendChild(el("span", { class: "tag", title: "first release containing a commit that names it", text: t.release }));
+    else if (t.unreleased) links.appendChild(el("span", { class: "tag", title: "named in commits after the last release", text: "unreleased" }));
+    if (t.queue) links.appendChild(el("span", { class: "tag", title: "build queue (attempt " + (t.queue.attempt || "?") + ")", text: "queue: " + t.queue.state }));
+
+    var main = el("div", { class: "rmain", onclick: function () { row.classList.toggle("open"); if (row.classList.contains("open")) fillDetail(); } }, [
+      el("span", { class: "tid" + (t.struck ? " struck" : ""), text: t.id }),
+      pill(t.status),
+      el("div", { class: "title" }, [md(t.title), sub]),
+      links
+    ]);
+    var detail = el("div", { class: "detail" });
+    var filled = false;
+    function fillDetail() {
+      if (filled) return;
+      filled = true;
+      var dl = el("dl");
+      function add(k, v) { if (v != null && v !== "") { dl.appendChild(el("dt", { text: k })); dl.appendChild(el("dd", {}, [v])); } }
+      add("Status", t.status + " — from " + t.status_source + (t.status_detail ? ": " + t.status_detail : ""));
+      add("Tag", t.tag ? md(t.tag) : null);
+      add("Phase", t.phase);
+      if (t.split_into.length) add("Split into", el("span", {}, t.split_into.map(function (d) {
+        return el("button", { class: "dep", onclick: function (ev) { ev.stopPropagation(); jump(r, d); } }, [dot(t.dep_status[d] || (index[d] || {}).status), d]);
+      })));
+      if (t.owns.length) add("Owns", el("span", {}, t.owns.map(function (o, i) { return el("span", {}, [i ? ", " : "", el("code", { text: o })]); })));
+      if (t.queue) add("Build queue", t.queue.state + (t.queue.attempt ? ", attempt " + t.queue.attempt : "") + (t.queue.minutes ? ", " + Math.round(t.queue.minutes) + " min" : "") + (t.queue.error ? " — " + t.queue.error : ""));
+      if (t.commits.length) add("Commits", el("div", {}, t.commits.map(function (c) {
+        return el("span", { class: "commit" }, [c.url ? link(c.url, c.short) : el("code", { text: c.short }), c.date + " ", md(c.subject), c.release ? el("span", { class: "tag", text: c.release }) : null]);
+      })));
+      add("Source", r.path + "/" + t.file + ":" + t.line);
+      detail.appendChild(dl);
+      if (t.notes) detail.appendChild(el("pre", { class: "notes" }, [md(t.notes)]));
+    }
+    row.appendChild(main);
+    row.appendChild(detail);
+    row._open = function () { row.classList.add("open"); fillDetail(); };
+    return row;
+  }
+
+  function jump(r, id) {
+    var node = document.getElementById("t-" + r.name + "-" + id);
+    if (!node) {  // hidden by the filters: show everything for that repo, then jump
+      state.closed = true; state.q = ""; state.feature = ""; state.off = {};
+      render();
+      node = document.getElementById("t-" + r.name + "-" + id);
+    }
+    if (!node) return;
+    var g = node.closest(".group");
+    if (g) g.classList.remove("collapsed");
+    node._open();
+    node.scrollIntoView({ block: "center", behavior: "smooth" });
+    node.classList.remove("flash"); void node.offsetWidth; node.classList.add("flash");
+  }
+
+  function tasksView(main) {
+    var rs = repos();
+    var all = [];
+    rs.forEach(function (r) { r.tasks.forEach(function (t) { all.push(t); }); });
+    var counts = {};
+    all.forEach(function (t) { counts[t.status] = (counts[t.status] || 0) + 1; });
+
+    var bar = el("div", { class: "toolbar" });
+    var search = el("input", { type: "search", placeholder: "Search ids, titles, notes…", value: state.q, "aria-label": "Search tasks" });
+    search.oninput = function () { state.q = search.value; writeHash(); drawList(); };
+    bar.appendChild(search);
+    STATUSES.forEach(function (s) {
+      if (s === "closed" || s === "split") return;
+      var b = el("button", { class: "chip", "aria-pressed": String(!state.off[s]) }, [dot(s), s + " " + (counts[s] || 0)]);
+      b.onclick = function () { state.off[s] = !state.off[s]; b.setAttribute("aria-pressed", String(!state.off[s])); writeHash(); drawList(); };
+      bar.appendChild(b);
+    });
+    var cb = el("input", { type: "checkbox" });
+    cb.checked = state.closed;
+    cb.onchange = function () { state.closed = cb.checked; writeHash(); drawList(); };
+    bar.appendChild(el("label", { class: "toggle" }, [cb, "Show closed (" + ((counts.closed || 0) + (counts.split || 0)) + ")"]));
+    if (rs.length === 1) {
+      var fs = el("select", { "aria-label": "Feature" }, [el("option", { value: "", text: "All features" })]);
+      rs[0].features.forEach(function (f) { if (f.has_tasks) fs.appendChild(el("option", { value: f.id, text: f.id })); });
+      fs.value = state.feature;
+      fs.onchange = function () { state.feature = fs.value; writeHash(); drawList(); };
+      bar.appendChild(fs);
+    }
+    main.appendChild(bar);
+    var list = el("div");
+    main.appendChild(list);
+
+    function visible(t) {
+      if ((t.status === "closed" || t.status === "split") && !state.closed) return false;
+      if (state.off[t.status]) return false;
+      if (state.feature && t.feature !== state.feature) return false;
+      return matches(t);
+    }
+    function drawList() {
+      list.textContent = "";
+      var shown = 0;
+      rs.forEach(function (r) {
+        var index = {};
+        r.tasks.forEach(function (t) { index[t.id] = t; });
+        var feats = r.features.filter(function (f) { return f.has_tasks; });
+        var blocks = [];
+        feats.forEach(function (f) {
+          var ts = r.tasks.filter(function (t) { return t.feature === f.id && visible(t); });
+          if (!ts.length) return;
+          shown += ts.length;
+          var c = f.counts;
+          var g = el("section", { class: "group" + (ts.length > 30 && !state.q ? " collapsed" : "") });
+          g.appendChild(el("div", { class: "ghead", onclick: function () { g.classList.toggle("collapsed"); } }, [
+            el("span", { class: "fid", text: f.id }),
+            el("span", { class: "ft" }, [md(f.title)]),
+            el("span", { class: "prog", text: c.closed + "/" + c.total + " closed · " + ts.length + " shown" })
+          ]));
+          var rows = el("div", { class: "rows" });
+          ts.forEach(function (t) { rows.appendChild(taskRow(t, r, index)); });
+          g.appendChild(rows);
+          blocks.push(g);
+        });
+        if (blocks.length && rs.length > 1) list.appendChild(el("div", { class: "repo-title", text: r.name }));
+        blocks.forEach(function (b) { list.appendChild(b); });
+      });
+      if (!shown) list.appendChild(el("div", { class: "empty", text: state.closed || state.q ? "No tasks match." : "No open tasks. Tick “Show closed” to see the rest." }));
+    }
+    drawList();
+  }
+
+  // ---------- features ----------
+  function featuresView(main) {
+    repos().forEach(function (r) {
+      if (DATA.repos.length > 1) main.appendChild(el("div", { class: "repo-title", text: r.name }));
+      var tb = el("tbody");
+      r.features.slice().reverse().forEach(function (f) {
+        var c = f.counts || { total: 0, closed: 0 };
+        var pct = c.total ? Math.round(100 * c.closed / c.total) : 0;
+        var open = STATUSES.filter(function (s) { return s !== "closed" && s !== "split" && c[s]; })
+          .map(function (s) { return c[s] + " " + s; }).join(", ");
+        tb.appendChild(el("tr", {}, [
+          el("td", {}, [el("code", { text: f.num })]),
+          el("td", {}, [el("a", { href: "#", onclick: function (ev) { ev.preventDefault(); state.tab = "tasks"; state.feature = f.id; state.closed = true; state.repo = DATA.repos.length > 1 ? r.name : ""; render(); } }, [md(f.title)]),
+            open ? el("div", { class: "sub", text: open }) : null]),
+          el("td", { text: f.state }),
+          el("td", {}, c.total ? [el("span", { class: "bar-o" }, [el("span", { class: "bar-i", style: "width:" + pct + "%" })]), " " + c.closed + "/" + c.total] : ["—"]),
+          el("td", { class: "hide-sm", text: (f.releases || []).filter(function (t) { return !/rc|alpha|beta/.test(t); }).join(", ") || (f.commits ? "unreleased" : "") }),
+          el("td", { class: "clip hide-sm", title: f.status_text }, [md((f.status_text || "").slice(0, 140) + ((f.status_text || "").length > 140 ? "…" : ""))])
+        ]));
+      });
+      main.appendChild(el("table", {}, [el("thead", {}, [el("tr", {}, ["#", "Feature", "State", "Tasks", "Released in", "Status line (spec.md)"].map(function (h, i) {
+        return el("th", { class: i >= 4 ? "hide-sm" : null, text: h });
+      }))]), tb]));
+    });
+  }
+
+  // ---------- ideas ----------
+  var KIND_ORDER = ["unmerged spec", "spec, no tasks", "backlog spec", "assessment", "roadmap", "doc", "doc on a branch", "issue", "todo"];
+  var KIND_HINT = {
+    "unmerged spec": "spec.md on a branch that isn't merged into main",
+    "spec, no tasks": "a spec on main with no tasks.md yet",
+    "backlog spec": "has tasks, none closed, and its Status line says backlog/draft",
+    "assessment": "Spec Kit's assess extension (.specify/assessments/)",
+    "roadmap": "a list item from a configured roadmap section",
+    "doc": "a configured ideas doc (e.g. an audit)",
+    "doc on a branch": "a configured ideas doc that only exists on a branch",
+    "issue": "an open GitHub issue that names no task",
+    "todo": "TODO / FIXME / XXX in code"
+  };
+  function ideasView(main) {
+    main.appendChild(el("p", { class: "hint", text: "Spec Kit has no backlog of its own: an idea is a spec once /speckit-specify runs. These are the likely next specs, gathered from where ideas live, each with its source." }));
+    var rs = repos();
+    var total = 0;
+    rs.forEach(function (r) {
+      var by = {};
+      r.ideas.forEach(function (i) { (by[i.kind] = by[i.kind] || []).push(i); total++; });
+      if (!r.ideas.length) return;
+      if (DATA.repos.length > 1) main.appendChild(el("div", { class: "repo-title", text: r.name }));
+      KIND_ORDER.concat(Object.keys(by).filter(function (k) { return KIND_ORDER.indexOf(k) < 0; })).forEach(function (k) {
+        if (!by[k]) return;
+        main.appendChild(el("h2", {}, [k + " ", el("small", { text: by[k].length + " · " + (KIND_HINT[k] || "") })]));
+        by[k].forEach(function (i) {
+          main.appendChild(el("div", { class: "card" }, [
+            el("div", {}, [i.url ? link(i.url, i.title) : md(i.title)]),
+            el("div", { class: "where", text: i.where + (i.branches ? "  ⑂ " + i.branches.slice(0, 4).join(", ") + (i.branches.length > 4 ? " +" + (i.branches.length - 4) : "") : "") }),
+            i.detail ? el("div", { class: "d" }, [md(i.detail)]) : null,
+            i.refs && i.refs.length ? el("div", { class: "chips" }, i.refs.map(function (d) {
+              var t = r.tasks.filter(function (x) { return x.id === d; })[0];
+              return el("button", { class: "dep", onclick: function () { state.tab = "tasks"; state.repo = DATA.repos.length > 1 ? r.name : ""; render(); jump(r, d); } }, [dot(t ? t.status : "open"), d]);
+            })) : null
+          ]));
+        });
+      });
+    });
+    if (!total) main.appendChild(el("div", { class: "empty", text: "No ideas found." }));
+  }
+
+  // ---------- releases ----------
+  function releasesView(main) {
+    main.appendChild(el("p", { class: "hint", text: "Specs come from each release's notes (marked ✎) and from commit subjects; tasks from commits that name them. A commit counts for the first tag that contains it." }));
+    repos().forEach(function (r) {
+      if (DATA.repos.length > 1) main.appendChild(el("div", { class: "repo-title", text: r.name }));
+      var index = {};
+      r.tasks.forEach(function (t) { index[t.id] = t; });
+      r.releases.forEach(function (rel) {
+        if (!rel.tag && !rel.commits) return;
+        var specChips = rel.specs.map(function (s) {
+          var inNotes = rel.specs_in_notes.indexOf(s) >= 0;
+          return el("span", { class: "tag", title: inNotes ? "named in the release notes" : "named in commits", text: s + (inNotes ? " ✎" : "") });
+        });
+        var taskChips = rel.tasks.map(function (d) {
+          return el("button", { class: "dep", title: index[d] ? index[d].title.slice(0, 120) : d, onclick: function () { state.tab = "tasks"; state.repo = DATA.repos.length > 1 ? r.name : ""; render(); jump(r, d); } }, [dot(index[d] ? index[d].status : "open"), d]);
+        });
+        main.appendChild(el("div", { class: "card" }, [
+          el("div", { class: "rel-h" }, [el("b", { text: rel.tag || "Unreleased" }), el("span", { class: "sub", text: (rel.date ? rel.date + " · " : "since the last tag · ") + rel.commits + " commits" + (rel.prerelease ? " · pre-release" : "") })]),
+          specChips.length ? el("div", { class: "chips" }, [el("span", { class: "sub", text: "Specs:" })].concat(specChips)) : null,
+          taskChips.length ? el("div", { class: "chips" }, [el("span", { class: "sub", text: "Tasks:" })].concat(taskChips)) : el("div", { class: "d sub", text: "No commits in this release name a task." })
+        ]));
+      });
+    });
+  }
+
+  function render() {
+    writeHash();
+    document.querySelectorAll(".tabs button").forEach(function (b) { b.setAttribute("aria-selected", String(b.dataset.tab === state.tab)); });
+    document.getElementById("repo").value = state.repo;
+    var main = document.getElementById("main");
+    main.textContent = "";
+    var rs = repos();
+    var problems = rs.filter(function (r) { return r.error || (r.sources && r.sources.config !== "ok"); });
+    problems.forEach(function (r) { main.appendChild(el("div", { class: "card", style: "border-color: var(--s-blocked)", text: r.name + ": " + (r.error || r.sources.config) })); });
+    ({ tasks: tasksView, features: featuresView, ideas: ideasView, releases: releasesView }[state.tab] || tasksView)(main);
+  }
+
+  readHash();
+  if (state.repo && !DATA.repos.some(function (r) { return r.name === state.repo; })) state.repo = "";
+  header();
+  render();
+  window.addEventListener("hashchange", function () { readHash(); render(); });
+})();
+</script>
+</body>
+</html>

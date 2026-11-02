@@ -1,0 +1,48 @@
+schema_version: "1.0"
+
+extension:
+  id: dash
+  name: "Status Dashboard"
+  version: "0.1.0"
+  description: "A local status page across your Spec Kit repos: every task with its status and dependencies, ideas that aren't specs yet, and which specs and tasks went into each release. Registers this repo with speckit-dash."
+  category: "reporting"
+  effect: "read-only"
+  author: btrzupek
+  repository: https://github.com/btrzupek/speckit-dash
+  license: MIT
+
+requires:
+  speckit_version: ">=0.9.0"
+  tools:
+    - name: uv
+      required: false
+    - name: gh
+      required: false
+
+provides:
+  commands:
+    - name: speckit.dash.open
+      file: commands/speckit.dash.open.md
+      description: "Build the status page for this repo (or every registered repo) and open it"
+    - name: speckit.dash.init
+      file: commands/speckit.dash.init.md
+      description: "Register this repo with speckit-dash and write .specify/dash.json"
+
+hooks:
+  after_tasks:
+    command: speckit.dash.open
+    optional: true
+    prompt: "Refresh the status page?"
+    description: "Rebuild the status page after tasks are generated"
+  after_implement:
+    command: speckit.dash.open
+    optional: true
+    prompt: "Refresh the status page?"
+    description: "Rebuild the status page after implementation"
+
+tags:
+  - "status"
+  - "dashboard"
+  - "progress"
+  - "releases"
+  - "backlog"
