@@ -19,6 +19,7 @@ DEFAULTS = {
         "issues": True,        # open GitHub issues that name no task
         "todos": True,         # TODO / FIXME / XXX in code
     },
+    "prompts": None,           # {"task": "...", "idea": "..."}: templates for the Copy prompt buttons (see README)
     "halo": None,              # {"project": "...", "ssh": "halo-agents", "agent": "~/halo-agents/bin/halo-agent"}
 }
 

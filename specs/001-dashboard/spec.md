@@ -69,6 +69,11 @@ has a repo picker with "All repos". A Spec Kit extension (`specify extension add
   rendered as text, never as HTML.
 - **FR-010** `serve` binds 127.0.0.1 only.
 - **FR-011** Nothing written to any repo except `.specify/dash.json` by `init`.
+- **FR-012** (owner, 2026-11-02: "a copy button where I can grab a prompt to tell the agent to begin work on whatever
+  item I clicked on") Every open task and every idea has a copy-prompt button. A task's prompt names the repo, the
+  id, summary, status, dependencies with their status, Owns, and where its full entry is, and says to tick it and
+  commit with its id. A spec with no tasks gets "plan and break it down"; other ideas get "/speckit-specify". Templates
+  per repo in `dash.json` `prompts`. When the clipboard is blocked, the prompt opens selected in a dialog.
 
 ## Success Criteria
 

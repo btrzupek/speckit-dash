@@ -97,6 +97,15 @@ h2 small { color: var(--muted); font-weight: 400; }
 .rel-h b { font-size: 15px; }
 .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 .hint { color: var(--muted); font-size: 12px; margin: 0 0 12px; }
+.copy { font: inherit; font-size: 11.5px; border: 1px solid var(--line); background: var(--panel); color: var(--accent); border-radius: 4px; padding: 0 6px; cursor: pointer; white-space: nowrap; }
+.copy:hover { background: var(--hover); }
+.copy.done { color: var(--s-closed); border-color: var(--s-closed); }
+.card-h { display: flex; gap: 10px; align-items: flex-start; justify-content: space-between; }
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; z-index: 20; padding: 16px; }
+.modal-box { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; width: min(720px, 100%); }
+.prompt-text { width: 100%; height: 260px; font: 12.5px ui-monospace, Menlo, monospace; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px; resize: vertical; }
+#toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 6px 14px; border-radius: 6px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 10; }
+#toast.show { opacity: 1; }
 @media (max-width: 720px) {
   .rmain { grid-template-columns: 1fr auto; }
   .rmain .tid { grid-column: 1; }
@@ -125,6 +134,7 @@ h2 small { color: var(--muted); font-weight: 400; }
   </div>
 </header>
 <main id="main"></main>
+<div id="toast" role="status" aria-live="polite"></div>
 <script id="data" type="application/json">/*DATA*/</script>
 <script>
 (function () {
@@ -171,6 +181,99 @@ h2 small { color: var(--muted); font-weight: 400; }
     if (!state.q) return true;
     var q = state.q.toLowerCase();
     return (t.id + " " + t.title + " " + t.tag + " " + t.notes + " " + t.feature + " " + t.status_detail).toLowerCase().indexOf(q) >= 0;
+  }
+
+
+  // ---------- copy a prompt that starts the work ----------
+  var DEFAULT_PROMPTS = {
+    task: "In {path}, work on Spec Kit task {id} ({feature}).\n\n" +
+      "Task: {title}\nStatus: {status}{detail}\nDepends on: {deps}\nOwns: {owns}\n\n" +
+      "Read specs/{feature}/spec.md and plan.md, and the task's full entry at {file}:{line} (notes included). " +
+      "Check its dependencies are done first; if one isn't, stop and tell me. When the task is finished, " +
+      "tick its checkbox in {file} and commit with a subject that starts \"{id}: \".",
+    "unmerged spec": "In {path}, pick up the spec {where} from branch {branches}: {title}.\n\n" +
+      "Review it with me, then run /speckit-plan and /speckit-tasks for it.",
+    "spec, no tasks": "In {path}, the spec {where} has no tasks yet: {title}.\n\n" +
+      "Its status line: {detail}\n\nReview it with me, then run /speckit-plan and /speckit-tasks for it.",
+    "backlog spec": "In {path}, the spec {where} is in the backlog: {title}.\n\nTell me what's left before it can be built.",
+    idea: "In {path}, turn this idea into a Spec Kit spec. Ask me what you need, then run /speckit-specify.\n\n" +
+      "Idea: {title}\nFrom: {where} ({kind}){detail}"
+  };
+  function fill(tpl, vals) {
+    return tpl.replace(/\{(\w+)\}/g, function (m, k) { return vals[k] != null ? String(vals[k]) : m; });
+  }
+  function taskPrompt(t, r) {
+    var tpl = (r.prompts || {}).task || DEFAULT_PROMPTS.task;
+    return fill(tpl, {
+      path: r.path, repo: r.name, id: t.id, feature: t.feature, title: t.title, status: t.status,
+      detail: t.status_detail && t.status !== "open" ? " (" + t.status_detail + ")" : "",
+      deps: t.deps.length ? t.deps.map(function (d) { return d + " (" + t.dep_status[d] + ")"; }).join(", ") : "none",
+      owns: t.owns.length ? t.owns.join(", ") : "not stated", file: t.file, line: t.line, tag: t.tag || "none",
+      notes: t.notes || ""
+    });
+  }
+  function ideaPrompt(i, r) {
+    var p = r.prompts || {};
+    var tpl = p[i.kind] || DEFAULT_PROMPTS[i.kind] || p.idea || DEFAULT_PROMPTS.idea;
+    return fill(tpl, {
+      path: r.path, repo: r.name, title: i.title, where: i.where, kind: i.kind,
+      detail: i.detail ? (tpl === DEFAULT_PROMPTS.idea || tpl === p.idea ? "\n" + i.detail : i.detail) : "",
+      branches: (i.branches || []).join(", "), url: i.url || ""
+    });
+  }
+  var toastTimer;
+  function toast(msg) {
+    var t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove("show"); }, 1600);
+  }
+  function legacyCopy(text) {
+    var ta = el("textarea", { style: "position:fixed;top:0;left:0;opacity:0" });
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    var ok = false;
+    try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+    ta.remove();
+    return ok;
+  }
+  function copyText(text) {  // the clipboard API, then the old way; the caller shows the text if both fail
+    if (navigator.clipboard && window.isSecureContext) {
+      return navigator.clipboard.writeText(text).catch(function () {
+        if (!legacyCopy(text)) throw new Error("blocked");
+      });
+    }
+    return legacyCopy(text) ? Promise.resolve() : Promise.reject(new Error("blocked"));
+  }
+  function showPrompt(text) {
+    var ta = el("textarea", { class: "prompt-text", readonly: "readonly", "aria-label": "Prompt" });
+    ta.value = text;
+    var dlg = el("div", { class: "modal", role: "dialog", "aria-modal": "true", onclick: function (ev) { if (ev.target === dlg) dlg.remove(); } }, [
+      el("div", { class: "modal-box" }, [
+        el("div", { class: "card-h" }, [el("b", { text: "Copy this prompt into your agent" }),
+          el("button", { class: "copy", text: "Close", onclick: function () { dlg.remove(); } })]),
+        el("p", { class: "hint", text: "The browser blocked the clipboard, so it's selected for you: press ⌘C / Ctrl+C." }),
+        ta
+      ])
+    ]);
+    document.body.appendChild(dlg);
+    ta.focus();
+    ta.select();
+    document.addEventListener("keydown", function esc(ev) { if (ev.key === "Escape") { dlg.remove(); document.removeEventListener("keydown", esc); } });
+  }
+  function copyButton(getText, what) {
+    return el("button", { class: "copy", title: "Copy a prompt that tells your coding agent to start on " + what,
+      onclick: function (ev) {
+        ev.stopPropagation();
+        var b = ev.currentTarget;
+        var text = getText();
+        copyText(text).then(function () {
+          b.classList.add("done"); b.textContent = "✓ copied"; toast("Prompt copied: paste it into your agent");
+          setTimeout(function () { b.classList.remove("done"); b.textContent = "⧉ prompt"; }, 1600);
+        }, function () { showPrompt(text); });
+      } }, ["⧉ prompt"]);
   }
 
   // ---------- hash state ----------
@@ -248,6 +351,7 @@ h2 small { color: var(--muted); font-weight: 400; }
     if (t.release) links.appendChild(el("span", { class: "tag", title: "first release containing a commit that names it", text: t.release }));
     else if (t.unreleased) links.appendChild(el("span", { class: "tag", title: "named in commits after the last release", text: "unreleased" }));
     if (t.queue) links.appendChild(el("span", { class: "tag", title: "build queue (attempt " + (t.queue.attempt || "?") + ")", text: "queue: " + t.queue.state }));
+    if (t.status !== "closed" && t.status !== "split") links.appendChild(copyButton(function () { return taskPrompt(t, r); }, t.id));
 
     var main = el("div", { class: "rmain", onclick: function () { row.classList.toggle("open"); if (row.classList.contains("open")) fillDetail(); } }, [
       el("span", { class: "tid" + (t.struck ? " struck" : ""), text: t.id }),
@@ -421,7 +525,8 @@ h2 small { color: var(--muted); font-weight: 400; }
         main.appendChild(el("h2", {}, [k + " ", el("small", { text: by[k].length + " · " + (KIND_HINT[k] || "") })]));
         by[k].forEach(function (i) {
           main.appendChild(el("div", { class: "card" }, [
-            el("div", {}, [i.url ? link(i.url, i.title) : md(i.title)]),
+            el("div", { class: "card-h" }, [el("div", {}, [i.url ? link(i.url, i.title) : md(i.title)]),
+              copyButton(function () { return ideaPrompt(i, r); }, "this idea")]),
             el("div", { class: "where", text: i.where + (i.branches ? "  ⑂ " + i.branches.slice(0, 4).join(", ") + (i.branches.length > 4 ? " +" + (i.branches.length - 4) : "") : "") }),
             i.detail ? el("div", { class: "d" }, [md(i.detail)]) : null,
             i.refs && i.refs.length ? el("div", { class: "chips" }, i.refs.map(function (d) {

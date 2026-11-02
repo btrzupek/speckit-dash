@@ -156,6 +156,13 @@ class TestModel(Base):
         self.assertEqual(r["sources"]["github"], "off")
         self.assertEqual(len(r["tasks"]), 8)
 
+    def test_prompt_templates_reach_the_page(self):
+        r = self.build(prompts={"task": "do {id}"})
+        self.assertEqual(r["prompts"], {"task": "do {id}"})
+        html = render(build_data([{"path": str(self.repo)}], use_github=False, use_halo=False))
+        self.assertIn("function taskPrompt", html)
+        self.assertIn("function showPrompt", html)
+
     def test_page_escapes(self):
         (self.repo / "specs/001-albums/tasks.md").write_text(TASKS.replace(
             "## Dependencies", "- [ ] 001-T009 </script><img src=x onerror=alert(1)>\n\n## Dependencies"))

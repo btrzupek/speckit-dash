@@ -49,6 +49,14 @@
   Also built once each against six other local Spec Kit repos (up to 1683 tasks each); every count matched its
   checkbox count.
 
+## Phase 7: Follow-ups (owner, 2026-11-02)
+
+- [x] 001-T012 FR-012: the copy-prompt button on tasks and ideas, `prompts` templates, the dialog fallback.
+  **Owns**: `src/speckit_dash/page.html`, `model.py` (the `prompts` field), `tests/test_model.py`
+- [x] 001-T013 README: what the tool and the extension each are, and a from-zero walkthrough for a new repo.
+- [x] 001-T014 *(architect)* Review for anything work-related before publishing (none found; other local repo names
+  dropped from T011's notes), then publish to github.com/btrzupek/speckit-dash (public, owner's OK).
+
 ## Dependencies
 
 T003, T004 → T005 → T006 → T007, T008. T002 → T009 → T010. T006, T009 → T011.

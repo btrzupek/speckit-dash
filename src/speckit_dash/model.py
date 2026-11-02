@@ -203,7 +203,7 @@ def build_repo(path, overrides=None, use_github=True, use_halo=True, use_cache=T
         t.pop("indent", None)
     return {
         "name": cfg["name"], "path": str(repo), "main": main, "checkout": gitdata.current_branch(repo),
-        "github": slug, "commit_url": commit_url,
+        "github": slug, "commit_url": commit_url, "prompts": cfg.get("prompts") or {},
         "sources": {"github": gh["status"], "halo": queue["status"], "config": cfg.get("_error") or "ok",
                     "queue_unmatched": sorted(set(queue["tasks"]) - known)[:50]},
         "features": features, "tasks": tasks, "releases": rel_rows, "ideas": idea_rows,
