@@ -34,6 +34,7 @@ code { font: 12.5px ui-monospace, SFMono-Regular, Menlo, monospace; background: 
 header { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); }
 .bar { max-width: 1200px; margin: 0 auto; padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
 h1 { font-size: 16px; margin: 0; font-weight: 650; }
+a.home { font-size: 13px; text-decoration: none; }
 select, input[type=search] { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
 input[type=search] { min-width: 200px; flex: 1; }
 .tabs { display: flex; gap: 2px; }
@@ -308,6 +309,7 @@ h2 small { color: var(--muted); font-weight: 400; }
     sel.value = state.repo;
     sel.style.display = DATA.repos.length > 1 ? "" : "none";
     if (DATA.repos.length === 1) { sel.after(el("strong", { text: DATA.repos[0].name })); }
+    if (DATA.home) sel.before(el("a", { href: DATA.home, class: "home", title: "Every repo's dashboard", text: "← repos" }));
     sel.onchange = function () { state.repo = sel.value; state.feature = ""; render(); };
     document.querySelectorAll(".tabs button").forEach(function (b) {
       b.onclick = function () { state.tab = b.dataset.tab; render(); };

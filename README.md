@@ -1,6 +1,7 @@
 # speckit-dash
 
-A local status page for [Spec Kit](https://github.com/github/spec-kit) repos. One page across all your repos shows:
+A local status page for [Spec Kit](https://github.com/github/spec-kit) repos. Each repo gets its own dashboard,
+showing:
 
 - every task, with its status and dependencies;
 - ideas that aren't specs yet;
@@ -57,7 +58,7 @@ This writes `.specify/dash.json` (settings, all optional) and adds the repo to y
 **5. Open the page**
 
 ```bash
-speckit-dash open        # writes ~/.cache/speckit-dash/index.html and opens it
+speckit-dash open        # inside the repo: this repo's dashboard (~/.cache/speckit-dash/pages/my-app/index.html)
 ```
 
 You'll see your tasks. Click **⧉ prompt** on the one you want, paste the prompt into your agent, and it starts on
@@ -80,11 +81,21 @@ Your agent now has `/speckit-dash-open` and `/speckit-dash-init`. The extension 
 speckit-dash discover          # lists repos with .specify/ under ~/projects ~/work ~/code ~/src ~/dev ~/repos
 speckit-dash discover --add    # registers all of them
 speckit-dash init ~/code/one-repo --roadmap 'docs/ROADMAP.md#Next'   # or one at a time, with settings
-speckit-dash open              # one page, with a repo picker and "All repos"
 ```
 
-To keep a live page open instead, run `speckit-dash serve` and go to http://127.0.0.1:8787/. It rebuilds on every
-reload. `speckit-dash list` shows what's registered, and `speckit-dash remove <name>` drops a repo.
+**Each repo has its own dashboard.** Nothing is merged into one big board:
+
+- Inside a repo, `speckit-dash open` opens that repo's dashboard.
+- Anywhere, `speckit-dash open <name>` opens the dashboard for the repo with that name.
+- Outside any repo, `speckit-dash open` builds every registered repo's dashboard. Each is a separate page under
+  `~/.cache/speckit-dash/pages/<name>/`. It then opens a small launcher page that only lists the repos, with their
+  open, blocked and idea counts, and links to each one.
+
+For live pages instead, run `speckit-dash serve`. Each repo's dashboard is at `http://127.0.0.1:8787/<name>/`, and
+http://127.0.0.1:8787/ lists them (it goes straight to the dashboard when only one repo is registered). Each page
+rebuilds on reload.
+
+`speckit-dash list` shows what's registered, and `speckit-dash remove <name>` drops a repo.
 
 No install? With the source checked out: `PYTHONPATH=src python3 -m speckit_dash open`.
 
@@ -191,7 +202,7 @@ otherwise.
   minute.
 - **The page:** `serve` binds 127.0.0.1 and has no option to bind anything else. The page makes no network
   requests (a Content-Security-Policy forbids them), and all repo text is rendered as text.
-- **Files it writes:** only the page and its cache (`~/.cache/speckit-dash/`), the registry, and
+- **Files it writes:** only the pages and their cache (`~/.cache/speckit-dash/`), the registry, and
   `.specify/dash.json` (by `init`).
 
 ## Development

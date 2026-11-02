@@ -205,22 +205,74 @@ class TestCli(Base):
     def test_build_writes_page(self):
         self.run_cli("init", str(self.repo))
         out = Path(self.tmp.name) / "page.html"
-        text = self.run_cli("build", "--out", str(out), "--no-github", "--no-halo")
+        text = self.run_cli("build", str(self.repo), "--out", str(out), "--no-github", "--no-halo")
         self.assertIn("albums: 2 features, 8 tasks", text)
         self.assertIn('id="data"', out.read_text())
 
+    def make_second_repo(self):
+        other = self.repo.parent / "notes"
+        (other / ".specify").mkdir(parents=True)
+        (other / "specs/001-notes").mkdir(parents=True)
+        (other / "specs/001-notes/spec.md").write_text("# Feature Specification: Notes\n")
+        (other / "specs/001-notes/tasks.md").write_text("## P\n\n- [ ] T001 write notes\n")
+        sh(other, "git", "init", "-q", "-b", "main")
+        commit(other, "001: notes")
+        return other
+
+    def test_each_repo_gets_its_own_page(self):
+        other = self.make_second_repo()
+        self.run_cli("init", str(self.repo))
+        self.run_cli("init", str(other))
+        cwd = os.getcwd()
+        os.chdir(self.tmp.name)  # outside any repo: every registered repo, each to its own page
+        try:
+            text = self.run_cli("build", "--no-github", "--no-halo")
+        finally:
+            os.chdir(cwd)
+        pages = config.cache_dir() / "pages"
+        albums = (pages / "albums/index.html").read_text()
+        notes = (pages / "notes/index.html").read_text()
+        self.assertIn("001-T006", albums)
+        self.assertNotIn("001-T006", notes)
+        self.assertNotIn('"name":"albums"', notes)
+        launcher = (config.cache_dir() / "index.html").read_text()
+        self.assertIn('href="pages/albums/index.html"', launcher)
+        self.assertIn('href="pages/notes/index.html"', launcher)
+        self.assertIn("all repos:", text)
+
+    def test_build_in_a_repo_builds_only_that_repo(self):
+        other = self.make_second_repo()
+        self.run_cli("init", str(self.repo))
+        self.run_cli("init", str(other))
+        cwd = os.getcwd()
+        os.chdir(other / "specs")
+        try:
+            text = self.run_cli("build", "--no-github", "--no-halo")
+        finally:
+            os.chdir(cwd)
+        self.assertIn("notes:", text)
+        self.assertNotIn("albums:", text)
+        self.assertIn("albums", self.run_cli("build", "albums", "--no-github", "--no-halo"))
+
     def test_serve_is_local_only(self):
         self.assertEqual(serve.HOST, "127.0.0.1")
-        httpd = serve.make_server(lambda: [{"path": str(self.repo)}], 0, use_github=False, use_halo=False)
+        other = self.make_second_repo()
+        httpd = serve.make_server(lambda: [{"path": str(self.repo)}, {"path": str(other)}], 0,
+                                  use_github=False, use_halo=False)
         self.assertEqual(httpd.server_address[0], "127.0.0.1")
         t = threading.Thread(target=httpd.serve_forever, daemon=True)
         t.start()
         try:
             port = httpd.server_address[1]
-            data = json.loads(urllib.request.urlopen(f"http://127.0.0.1:{port}/data.json").read())
+            data = json.loads(urllib.request.urlopen(f"http://127.0.0.1:{port}/albums/data.json").read())
             self.assertTrue(data["served"])
-            page = urllib.request.urlopen(f"http://127.0.0.1:{port}/").read().decode()
+            self.assertEqual([r["name"] for r in data["repos"]], ["albums"])
+            page = urllib.request.urlopen(f"http://127.0.0.1:{port}/notes/").read().decode()
             self.assertIn("Spec Kit status", page)
+            self.assertNotIn("001-T006", page)
+            home = urllib.request.urlopen(f"http://127.0.0.1:{port}/").read().decode()
+            self.assertIn('href="/albums/"', home)
+            self.assertIn('href="/notes/"', home)
         finally:
             httpd.shutdown()
             httpd.server_close()

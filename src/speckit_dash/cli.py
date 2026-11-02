@@ -13,18 +13,37 @@ SKIP_DIRS = {"node_modules", ".git", ".venv", "venv", "Library", ".Trash", ".cac
 DEFAULT_ROOTS = ["~/projects", "~/work", "~/code", "~/src", "~/dev", "~/repos"]
 
 
+def _here():
+    """The repo the current folder is in, when it's a Spec Kit repo."""
+    import subprocess
+    r = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True)
+    top = Path(r.stdout.strip()) if r.returncode == 0 else Path.cwd()
+    return str(top.resolve()) if config.is_speckit_repo(top) else None
+
+
+def _resolve(key, reg):
+    """A registry entry by name, folder name or path; an unregistered Spec Kit repo by path."""
+    path = str(Path(key).expanduser().resolve())
+    for r in reg:
+        if key in (r["path"], Path(r["path"]).name, config.repo_config(r["path"], r.get("config"))["name"]) \
+                or r["path"] == path:
+            return r
+    if config.is_speckit_repo(path):
+        return {"path": path}
+    sys.exit(f"No registered repo called {key!r}, and {path} isn't a Spec Kit repo. `speckit-dash list` shows them.")
+
+
 def _entries(args):
+    """The repos to build, each to its own page: the ones named, else the repo you're in, else every registered one."""
     reg = config.load_registry()["repos"]
-    if getattr(args, "repo", None):
-        out = []
-        for p in args.repo:
-            path = str(Path(p).expanduser().resolve())
-            out.append(next((r for r in reg if r["path"] == path), {"path": path}))
-        return out
+    keys = list(getattr(args, "repo", None) or []) + ([args.target] if getattr(args, "target", None) else [])
+    if keys:
+        return [_resolve(k, reg) for k in keys]
+    here = _here()
+    if here:
+        return [next((r for r in reg if r["path"] == here), {"path": here})]
     if reg:
         return reg
-    if config.is_speckit_repo(Path.cwd()):
-        return [{"path": str(Path.cwd())}]
     sys.exit("No repos registered and this folder isn't a Spec Kit repo. Run `speckit-dash init` in a repo, "
              "or `speckit-dash discover`.")
 
@@ -127,22 +146,31 @@ def cmd_remove(args):
 
 
 def _build(args):
-    from .page import build_data, render
-    data = build_data(_entries(args), not args.no_github, not args.no_halo, use_cache=not args.fresh)
-    out = Path(args.out).expanduser() if args.out else config.cache_dir() / "index.html"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(render(data))
-    if args.json:
-        Path(args.json).expanduser().write_text(json.dumps(data, indent=1))
-    for r in data["repos"]:
+    """Build each repo's own page, then the launcher that lists every registered repo. Returns what to open."""
+    from .page import build_one, write_launcher
+    entries = _entries(args)
+    if (args.out or args.json) and len(entries) > 1:
+        sys.exit("--out and --json need a single repo: name it, or run from inside it.")
+    pages = []
+    for e in entries:
+        out, data = build_one(e, not args.no_github, not args.no_halo, use_cache=not args.fresh,
+                              out=Path(args.out).expanduser() if args.out else None)
+        if args.json:
+            Path(args.json).expanduser().write_text(json.dumps(data, indent=1))
+        r = data["repos"][0]
         if r.get("error"):
             print(f"  {r['name']}: {r['error']}", file=sys.stderr)
         else:
             open_n = sum(t["status"] not in ("closed", "split") for t in r["tasks"])
             print(f"  {r['name']}: {len(r['features'])} features, {len(r['tasks'])} tasks ({open_n} open), "
                   f"{len(r['ideas'])} ideas · GitHub {r['sources']['github']} · build queue {r['sources']['halo']}")
-    print(out)
-    return out
+            print(f"    {out}")
+        pages.append(out)
+    launcher = write_launcher()
+    if len(pages) > 1:
+        print(f"  all repos: {launcher}")
+        return launcher
+    return pages[0]
 
 
 def cmd_build(args):
@@ -156,7 +184,11 @@ def cmd_open(args):
 
 def cmd_serve(args):
     from .serve import serve
-    serve(lambda: _entries(args), args.port, not args.no_github, not args.no_halo)
+    reg = config.load_registry()["repos"]
+    keys = args.repo or []
+    entries_fn = (lambda: [_resolve(k, reg) for k in keys]) if keys else \
+        (lambda: config.load_registry()["repos"] or ([{"path": _here()}] if _here() else []))
+    serve(entries_fn, args.port, not args.no_github, not args.no_halo)
 
 
 def main(argv=None):
@@ -186,15 +218,18 @@ def main(argv=None):
     p.set_defaults(fn=cmd_remove)
 
     for name, fn, help_ in (("build", cmd_build, "write the page"), ("open", cmd_open, "write the page and open it"),
-                            ("serve", cmd_serve, "serve the page on 127.0.0.1, rebuilt on each load")):
+                            ("serve", cmd_serve, "serve every repo's page on 127.0.0.1 (/<repo>/), rebuilt on each load")):
         p = sub.add_parser(name, help=help_)
-        p.add_argument("--repo", action="append", help="only this repo (repeatable); default: all registered")
+        if name != "serve":
+            p.add_argument("target", nargs="?", help="a repo's name or path; default: the repo you're in, "
+                                                     "else every registered repo, each to its own page")
+        p.add_argument("--repo", action="append", help="a repo's name or path (repeatable)")
         p.add_argument("--no-github", action="store_true")
         p.add_argument("--no-halo", action="store_true")
         if name == "serve":
             p.add_argument("--port", type=int, default=8787)
         else:
-            p.add_argument("--out", help="the page (default: ~/.cache/speckit-dash/index.html)")
+            p.add_argument("--out", help="the page, for a single repo (default: ~/.cache/speckit-dash/<repo>/index.html)")
             p.add_argument("--json", help="also write the data as JSON here")
             p.add_argument("--fresh", action="store_true", help="skip the GitHub and build-queue cache")
         p.set_defaults(fn=fn)
